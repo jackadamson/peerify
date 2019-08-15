@@ -17,6 +17,8 @@ color_list = [
     fg.li_red
 ]
 
+watchers = set()
+
 
 class Peer(Protocol):
     connections: Set[Protocol]
@@ -31,17 +33,26 @@ class Peer(Protocol):
             self.transport.abortConnection()
 
     def connectionMade(self):
-        print(self.color + "New Connection!")
+        datarepr = self.color + "New Connection!"
+        print(datarepr)
+        for watcher in watchers:
+            watcher.transport.write((datarepr+'\n').encode())
         self.connections.add(self)
 
     def connectionLost(self, reason):
-        print(self.color + "Connection Lost!")
+        datarepr = self.color + "Connection Lost!"
+        print(datarepr)
+        for watcher in watchers:
+            watcher.transport.write((datarepr+'\n').encode())
         self.connections.discard(self)
         for connection in self.connections:
             reactor.callLater(0.1, connection.safeAbort)
 
     def dataReceived(self, data):
-        print(self.color + "Data: {}".format(repr(data)))
+        datarepr = self.color + "Data: {}".format(repr(data))
+        print(datarepr)
+        for watcher in watchers:
+            watcher.transport.write((datarepr+'\n').encode())
         for connection in self.connections:
             if connection != self:
                 connection.transport.write(data)
@@ -57,7 +68,24 @@ class PeerFactory(Factory):
         return Peer(self.connections, self.port)
 
 
+
+class Watcher(Protocol):
+    def connectionMade(self):
+        print("New Watcher!")
+        watchers.add(self)
+
+    def connectionLost(self, reason):
+        print("Watcher Lost!")
+        watchers.discard(self)
+
+
+class WatcherFactory(Factory):
+    def buildProtocol(self, addr):
+        return Watcher()
+
+
 if __name__ == '__main__':
+    reactor.listenTCP(8200, WatcherFactory())
     for iport in range(8110, 8140):
         reactor.listenTCP(iport, PeerFactory(iport))
 

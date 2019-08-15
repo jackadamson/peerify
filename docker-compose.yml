@@ -1,0 +1,8 @@
+version: '3.6'
+services:
+  peerify:
+    restart: always
+    build: ./src
+    ports:
+      - "0.0.0.0:8110-8139:8110-8139"
+      - "0.0.0.0:8200:8200"
